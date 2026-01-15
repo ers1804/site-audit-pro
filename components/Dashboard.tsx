@@ -5,6 +5,9 @@ import { SiteReport, TextModule } from '../types';
 interface DashboardProps {
   reports: SiteReport[];
   customModules: TextModule[];
+  isCloudConnected: boolean;
+  isSyncing: boolean;
+  onConnectDrive: () => void;
   onCreateNew: () => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
@@ -16,6 +19,9 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ 
   reports, 
   customModules, 
+  isCloudConnected,
+  isSyncing,
+  onConnectDrive,
   onCreateNew, 
   onEdit, 
   onDelete, 
@@ -55,18 +61,34 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Site Management</h2>
           <p className="text-slate-500">Overview of reports and library modules</p>
         </div>
-        <button 
-          onClick={() => setShowModuleModal(true)}
-          className="bg-white border border-gray-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm flex items-center gap-2"
-        >
-          <i className="fas fa-book text-blue-500"></i>
-          Manage Modules
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          {!isCloudConnected ? (
+            <button 
+              onClick={onConnectDrive}
+              className="flex-1 sm:flex-none bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-md flex items-center justify-center gap-2"
+            >
+              <i className="fab fa-google-drive"></i>
+              Connect Drive
+            </button>
+          ) : (
+            <div className="flex-1 sm:flex-none bg-white border border-green-100 text-green-700 px-4 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
+              <i className={`fas ${isSyncing ? 'fa-sync fa-spin' : 'fa-check-circle'}`}></i>
+              {isSyncing ? 'Syncing...' : 'Synced'}
+            </div>
+          )}
+          <button 
+            onClick={() => setShowModuleModal(true)}
+            className="flex-1 sm:flex-none bg-white border border-gray-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm flex items-center justify-center gap-2"
+          >
+            <i className="fas fa-book text-blue-500"></i>
+            Modules
+          </button>
+        </div>
       </div>
 
       <section>

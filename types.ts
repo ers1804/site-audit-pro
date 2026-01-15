@@ -31,10 +31,12 @@ export interface SiteReport {
   distributionList: DistributionRecipient[];
   deviations: Deviation[];
   status: 'Draft' | 'Final';
+  lastUpdated: number; // For sync conflict resolution
 }
 
 export interface TextModule {
   id?: string;
   category: string;
   content: string;
+  lastUpdated?: number;
 }

@@ -4,7 +4,16 @@ import { SiteReport, TextModule, Deviation } from './types';
 import Dashboard from './components/Dashboard';
 import ReportEditor from './components/ReportEditor';
 import { TEXT_MODULES } from './constants';
-import { getAllReports, saveReportToDB, deleteReportFromDB, getAllCustomModules, saveModuleToDB, deleteModuleFromDB } from './services/storage';
+import { 
+  getAllReports, 
+  saveReportToDB, 
+  deleteReportFromDB, 
+  getAllCustomModules, 
+  saveModuleToDB, 
+  deleteModuleFromDB,
+  syncFromCloud
+} from './services/storage';
+import { initDriveApi, authenticateDrive, isDriveAuthenticated, saveToDrive, loadFromDrive, listDriveReports } from './services/googleDrive';
 
 const App: React.FC = () => {
   const [reports, setReports] = useState<SiteReport[]>([]);
@@ -12,15 +21,17 @@ const App: React.FC = () => {
   const [activeReportId, setActiveReportId] = useState<string | null>(null);
   const [view, setView] = useState<'dashboard' | 'editor'>('dashboard');
   const [isLoading, setIsLoading] = useState(true);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [isDriveConnected, setIsDriveConnected] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        let modulesData = await getAllCustomModules();
+        await initDriveApi().catch(err => console.warn("Google API not initialized - might be missing Client ID"));
         
-        // Seed standard modules if the store is empty
+        let modulesData = await getAllCustomModules();
         if (modulesData.length === 0) {
-          const seededModules = TEXT_MODULES.map(m => ({ ...m, id: crypto.randomUUID() }));
+          const seededModules = TEXT_MODULES.map(m => ({ ...m, id: crypto.randomUUID(), lastUpdated: Date.now() }));
           await Promise.all(seededModules.map(m => saveModuleToDB(m)));
           modulesData = seededModules;
         }
@@ -29,13 +40,63 @@ const App: React.FC = () => {
         setReports(reportsData.sort((a, b) => b.visitDate.localeCompare(a.visitDate)));
         setCustomModules(modulesData);
       } catch (error) {
-        console.error("Failed to load data from IndexedDB", error);
+        console.error("Failed to load data", error);
       } finally {
         setIsLoading(false);
       }
     };
     loadData();
   }, []);
+
+  const handleDriveConnect = async () => {
+    try {
+      setIsCloudSyncing(true);
+      await authenticateDrive();
+      setIsDriveConnected(true);
+      await syncAllWithDrive();
+    } catch (err) {
+      console.error("Drive connection failed", err);
+      alert("Google Drive connection failed. Please check your internet connection and Client ID configuration.");
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
+  const syncAllWithDrive = async () => {
+    if (!isDriveAuthenticated()) return;
+    setIsCloudSyncing(true);
+    try {
+      // 1. Pull modules
+      const cloudModules = await loadFromDrive<TextModule[]>('modules_v1.json') || [];
+      
+      // 2. Pull all reports
+      const cloudReportNames = await listDriveReports();
+      const cloudReports: SiteReport[] = [];
+      for (const name of cloudReportNames) {
+        const r = await loadFromDrive<SiteReport>(name);
+        if (r) cloudReports.push(r);
+      }
+
+      // 3. Merge locally
+      await syncFromCloud(cloudReports, cloudModules);
+
+      // 4. Update UI
+      const updatedModules = await getAllCustomModules();
+      const updatedReports = await getAllReports();
+      setReports(updatedReports.sort((a, b) => b.visitDate.localeCompare(a.visitDate)));
+      setCustomModules(updatedModules);
+
+      // 5. Push current state back to cloud (to ensure cloud is updated with any newer local items)
+      await saveToDrive('modules_v1.json', updatedModules);
+      for (const r of updatedReports) {
+        await saveToDrive(`report_${r.id}.json`, r);
+      }
+    } catch (err) {
+      console.error("Sync failed", err);
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
 
   const createNewReport = async () => {
     const now = new Date();
@@ -51,26 +112,33 @@ const App: React.FC = () => {
       inspector: '',
       distributionList: [],
       deviations: [],
-      status: 'Draft'
+      status: 'Draft',
+      lastUpdated: Date.now()
     };
     
     try {
       await saveReportToDB(newReport);
+      if (isDriveAuthenticated()) {
+        saveToDrive(`report_${newReport.id}.json`, newReport);
+      }
       setReports(prev => [newReport, ...prev]);
       setActiveReportId(newReport.id);
       setView('editor');
     } catch (error) {
       console.error("Failed to create report", error);
-      alert("Error: Could not save new report.");
     }
   };
 
   const updateReport = async (updatedReport: SiteReport) => {
-    setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r));
+    const reportWithTime = { ...updatedReport, lastUpdated: Date.now() };
+    setReports(prev => prev.map(r => r.id === reportWithTime.id ? reportWithTime : r));
     try {
-      await saveReportToDB(updatedReport);
+      await saveReportToDB(reportWithTime);
+      if (isDriveAuthenticated()) {
+        saveToDrive(`report_${reportWithTime.id}.json`, reportWithTime);
+      }
     } catch (error) {
-      console.error("Failed to sync update to storage", error);
+      console.error("Failed to sync update", error);
     }
   };
 
@@ -80,8 +148,11 @@ const App: React.FC = () => {
       const updatedDeviations = r.deviations.map(d => 
         d.id === deviationId ? { ...d, ...updates } : d
       );
-      const updatedReport = { ...r, deviations: updatedDeviations };
-      saveReportToDB(updatedReport).catch(err => console.error("Auto-save deviation failed", err));
+      const updatedReport = { ...r, deviations: updatedDeviations, lastUpdated: Date.now() };
+      saveReportToDB(updatedReport);
+      if (isDriveAuthenticated()) {
+        saveToDrive(`report_${updatedReport.id}.json`, updatedReport);
+      }
       return updatedReport;
     }));
   };
@@ -91,6 +162,7 @@ const App: React.FC = () => {
       try {
         await deleteReportFromDB(id);
         setReports(prev => prev.filter(r => r.id !== id));
+        // Note: Drive deletion would require drive.files.delete permission if desired
       } catch (error) {
         console.error("Failed to delete report", error);
       }
@@ -98,20 +170,28 @@ const App: React.FC = () => {
   };
 
   const addCustomModule = async (category: string, content: string) => {
-    const newModule: TextModule = { id: crypto.randomUUID(), category, content };
+    const newModule: TextModule = { id: crypto.randomUUID(), category, content, lastUpdated: Date.now() };
     try {
       await saveModuleToDB(newModule);
-      setCustomModules(prev => [...prev, newModule]);
+      const updated = [...customModules, newModule];
+      setCustomModules(updated);
+      if (isDriveAuthenticated()) {
+        saveToDrive('modules_v1.json', updated);
+      }
     } catch (error) {
       console.error("Failed to save module", error);
     }
   };
 
   const updateCustomModule = async (id: string, category: string, content: string) => {
-    const updatedModule = { id, category, content };
+    const updatedModule = { id, category, content, lastUpdated: Date.now() };
     try {
       await saveModuleToDB(updatedModule);
-      setCustomModules(prev => prev.map(m => m.id === id ? updatedModule : m));
+      const updated = customModules.map(m => m.id === id ? updatedModule : m);
+      setCustomModules(updated);
+      if (isDriveAuthenticated()) {
+        saveToDrive('modules_v1.json', updated);
+      }
     } catch (error) {
       console.error("Failed to update module", error);
     }
@@ -120,7 +200,11 @@ const App: React.FC = () => {
   const deleteCustomModule = async (id: string) => {
     try {
       await deleteModuleFromDB(id);
-      setCustomModules(prev => prev.filter(m => m.id !== id));
+      const updated = customModules.filter(m => m.id !== id);
+      setCustomModules(updated);
+      if (isDriveAuthenticated()) {
+        saveToDrive('modules_v1.json', updated);
+      }
     } catch (error) {
       console.error("Failed to delete module", error);
     }
@@ -143,7 +227,15 @@ const App: React.FC = () => {
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
             <i className="fas fa-hard-hat text-yellow-400 text-2xl"></i>
-            <h1 className="text-xl font-bold tracking-tight text-white">SiteAudit Pro</h1>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-white leading-tight">SiteAudit Pro</h1>
+              {isDriveConnected && (
+                <div className="flex items-center gap-1.5 text-[10px] text-blue-300 font-bold uppercase tracking-wider">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isCloudSyncing ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`}></span>
+                  Cloud Connected
+                </div>
+              )}
+            </div>
           </div>
           {view === 'editor' && (
             <button 
@@ -161,6 +253,9 @@ const App: React.FC = () => {
           <Dashboard 
             reports={reports} 
             customModules={customModules}
+            isCloudConnected={isDriveConnected}
+            isSyncing={isCloudSyncing}
+            onConnectDrive={handleDriveConnect}
             onCreateNew={createNewReport} 
             onEdit={(id) => { setActiveReportId(id); setView('editor'); }}
             onDelete={deleteReport}

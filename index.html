@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,21 +39,32 @@
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
 <body class="bg-gray-50 text-gray-900 overflow-x-hidden">
   <div id="root"></div>
   
   <script type="module" src="./index.tsx"></script>
 
+  <!-- Google API Scripts -->
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://accounts.google.com/gsi/client"></script>
+
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        // Register the SW. Relative path works correctly for the current directory
-        navigator.serviceWorker.register('sw.js')
-          .then(reg => console.log('SW Registered', reg))
-          .catch(err => console.error('SW Registration Failed', err));
+        // Using './sw.js' ensures the path is relative to the current directory
+        // and not the domain root, which is critical for subfolder hosting.
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => {
+            console.log('SW Registered successfully with scope:', reg.scope);
+          })
+          .catch(err => {
+            console.error('SW Registration Failed:', err.message);
+          });
       });
     }
   </script>
+<script type="module" src="/index.tsx"></script>
 </body>
 </html>
