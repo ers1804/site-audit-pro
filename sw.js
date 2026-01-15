@@ -1,7 +1,8 @@
-const CACHE_NAME = 'siteaudit-v8';
+const CACHE_NAME = 'siteaudit-v9';
 
-// Assets to cache using relative paths
+// Explicitly cache both the directory root and index.html
 const ASSETS_TO_CACHE = [
+  './',
   'index.html',
   'manifest.json',
   'https://cdn.tailwindcss.com',
@@ -12,7 +13,12 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      // Use a more resilient way to add all assets
+      return Promise.all(
+        ASSETS_TO_CACHE.map(url => {
+          return cache.add(url).catch(err => console.warn(`Failed to cache ${url}:`, err));
+        })
+      );
     })
   );
 });
@@ -44,19 +50,19 @@ self.addEventListener('fetch', (event) => {
         }
 
         return fetch(event.request).then((networkResponse) => {
-          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic' && !isCdn) {
-            return networkResponse;
+          // Cache successful responses for assets
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
           }
-
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-
           return networkResponse;
         }).catch(() => {
+          // If network fails and it's a navigation request, 
+          // return the cached index.html or root
           if (event.request.mode === 'navigate') {
-            return caches.match('index.html');
+            return caches.match('index.html') || caches.match('./');
           }
         });
       })

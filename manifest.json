@@ -2,7 +2,7 @@
   "name": "SiteAudit Pro",
   "short_name": "SiteAudit",
   "description": "Professional construction site visit report generator",
-  "start_url": "./index.html",
+  "start_url": ".",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0f172a",
