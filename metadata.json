@@ -1,0 +1,8 @@
+{
+  "name": "SiteAudit Pro",
+  "description": "Professional construction site visit report generator. Capture deviations with photos, select pre-written modules, and generate compliant PDF reports with attendance and distribution lists.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}

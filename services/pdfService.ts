@@ -1,0 +1,150 @@
+
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { SiteReport } from '../types';
+
+export const generatePDF = async (report: SiteReport) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 15;
+
+  const centerText = (text: string, y: number, size = 12, style = 'normal') => {
+    doc.setFontSize(size);
+    doc.setFont('helvetica', style);
+    const textWidth = doc.getTextWidth(text);
+    doc.text(text, (pageWidth - textWidth) / 2, y);
+  };
+
+  // --- PAGE 1: TITLE & DISTRIBUTION ---
+  doc.setFillColor(31, 41, 55); 
+  doc.rect(0, 0, pageWidth, 40, 'F');
+  doc.setTextColor(255, 255, 255);
+  centerText('SITE VISIT AUDIT REPORT', 18, 22, 'bold');
+  centerText(report.projectName || 'Unnamed Project', 28, 14, 'normal');
+  
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.text(`Project No: ${report.projectNumber || 'N/A'}`, margin, 50);
+  doc.text(`Report No: ${report.reportNumber || 'N/A'}`, 60, 50);
+  doc.text(`Date: ${report.visitDate}`, margin, 56);
+  doc.text(`Time: ${report.visitTime || 'N/A'}`, 60, 56);
+  doc.text(`Location: ${report.location || 'N/A'}`, margin, 62);
+  doc.text(`Author: ${report.author || 'N/A'}`, margin, 68);
+  doc.text(`Inspector: ${report.inspector || 'N/A'}`, 60, 68);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('DISTRIBUTION & ATTENDANCE LIST', margin, 80);
+  
+  autoTable(doc, {
+    startY: 85,
+    head: [['Name', 'Role', 'Company', 'Email', 'Present']],
+    body: report.distributionList.map(d => [
+      d.name, 
+      d.role, 
+      d.company, 
+      d.email, 
+      d.isPresent ? '[X] Yes' : '[ ] No'
+    ]),
+    theme: 'grid',
+    headStyles: { fillColor: [31, 41, 55], textColor: [255, 255, 255] },
+    columnStyles: {
+      4: { halign: 'center' }
+    }
+  });
+
+  // --- PAGE 2+: DEVIATIONS ---
+  if (report.deviations.length > 0) {
+    doc.addPage();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('SITE DEVIATIONS & OBSERVATIONS', margin, 20);
+    
+    let currentY = 30;
+    const lineHeight = 5.5;
+
+    for (let i = 0; i < report.deviations.length; i++) {
+      const dev = report.deviations[i];
+      
+      // Approximate height calculation for page break check
+      const textWidthLimit = dev.photoUrl ? 90 : 180;
+      const splitText = doc.splitTextToSize(dev.textModule || 'No description provided.', textWidthLimit);
+      const textBlockHeight = splitText.length * 5;
+      const totalItemHeight = Math.max(dev.photoUrl ? 65 : 0, textBlockHeight + 25);
+
+      // Page break check
+      if (currentY + totalItemHeight > pageHeight - 20) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      // Severity Header Bar
+      const severityColors: Record<string, [number, number, number]> = {
+        'Low': [34, 197, 94], 'Medium': [234, 179, 8], 'High': [249, 115, 22], 'Critical': [239, 68, 68]
+      };
+      const color = severityColors[dev.severity] || [100, 100, 100];
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.rect(margin, currentY, 180, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.text(`ITEM ${i + 1} - ${dev.severity.toUpperCase()} SEVERITY`, margin + 5, currentY + 5.5);
+      doc.setTextColor(0, 0, 0);
+      currentY += 12;
+
+      let contentStartY = currentY;
+      let textX = margin;
+      
+      if (dev.photoUrl) {
+        try {
+          doc.addImage(dev.photoUrl, 'JPEG', margin, currentY, 80, 60);
+          textX = margin + 85;
+        } catch (e) {
+          doc.rect(margin, currentY, 80, 60);
+          doc.text('Image Error', margin + 30, currentY + 30);
+          textX = margin + 85;
+        }
+      }
+
+      // Observation Text
+      doc.setFont('helvetica', 'bold');
+      doc.text('Observation:', textX, contentStartY + 5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(splitText, textX, contentStartY + 11);
+
+      // Track how far down the text went
+      const textEndPointY = contentStartY + 11 + (splitText.length * 5);
+      // Track how far down the image went (if any)
+      const imageEndPointY = dev.photoUrl ? contentStartY + 60 : contentStartY;
+      
+      // Position the metadata fields below both text and image
+      let fieldY = Math.max(textEndPointY, imageEndPointY) + 8;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text(`Verantwortlich:`, textX, fieldY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(dev.responsible || 'N/A', textX + 30, fieldY);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text(`erledigen / Entscheid:`, textX, fieldY + 6);
+      doc.setFont('helvetica', 'normal');
+      doc.text(dev.actionStatus || 'laufend', textX + 40, fieldY + 6);
+
+      // Update currentY for next item
+      currentY = fieldY + 15;
+    }
+  }
+
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - 30, pageHeight - 10);
+    doc.text(`Report Generated: ${new Date().toLocaleString()}`, margin, pageHeight - 10);
+  }
+
+  const fileName = `SiteReport_${report.projectName.replace(/\s+/g, '_') || 'Draft'}_${report.visitDate}.pdf`;
+  doc.save(fileName);
+};
