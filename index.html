@@ -52,8 +52,9 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        // Register sw.js relative to index.html
-        navigator.serviceWorker.register('sw.js', { scope: './' })
+        // Register sw.js without explicit scope to avoid same-origin mismatch.
+        // The scope will default to the directory of the script (/site-audit-pro/).
+        navigator.serviceWorker.register('sw.js')
           .then(reg => {
             console.log('SW Registered successfully with scope:', reg.scope);
           })
