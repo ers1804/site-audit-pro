@@ -1,7 +1,6 @@
 
-const CACHE_NAME = 'siteaudit-v3';
-// Get the current path (e.g., /site-audit-pro/)
-const BASE_PATH = self.location.pathname.replace('sw.js', '');
+const CACHE_NAME = 'siteaudit-v5';
+const BASE_PATH = '/site-audit-pro/';
 
 const ASSETS_TO_CACHE = [
   BASE_PATH,
@@ -24,8 +23,11 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
       );
     }).then(() => self.clients.claim())
   );
@@ -34,15 +36,29 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // Only intercept requests within our folder scope
+  // Only handle requests within our scope
   if (url.pathname.startsWith(BASE_PATH)) {
     event.respondWith(
       caches.match(event.request).then((response) => {
-        // Return cache or fetch from network
-        return response || fetch(event.request).catch(() => {
-          // SPA fallback to index.html for navigation
+        // Return cached response if found
+        if (response) {
+          return response;
+        }
+
+        // Otherwise try the network
+        return fetch(event.request).then((networkResponse) => {
+          // Optional: Cache assets/ folder files as they are requested
+          if (url.pathname.includes('/assets/') && networkResponse.status === 200) {
+            const cacheCopy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, cacheCopy);
+            });
+          }
+          return networkResponse;
+        }).catch(() => {
+          // If offline and request is for navigation, return cached entry point
           if (event.request.mode === 'navigate') {
-            return caches.match(BASE_PATH + 'index.html');
+            return caches.match(BASE_PATH) || caches.match(BASE_PATH + 'index.html');
           }
         });
       })
