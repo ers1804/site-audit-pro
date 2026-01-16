@@ -196,10 +196,10 @@ const ReportEditor: React.FC<ReportEditorProps> = ({ report, customModules, onUp
           <i className="fas fa-info-circle mr-2"></i> Info
         </button>
         <button onClick={() => setActiveTab('people')} className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${activeTab === 'people' ? 'bg-slate-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
-          <i className="fas fa-users mr-2"></i> Distribution List
+          <i className="fas fa-users mr-2"></i> Verteilerliste
         </button>
         <button onClick={() => setActiveTab('deviations')} className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${activeTab === 'deviations' ? 'bg-slate-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
-          <i className="fas fa-exclamation-triangle mr-2"></i> Deviations ({report.deviations.length})
+          <i className="fas fa-exclamation-triangle mr-2"></i> Beobachtungen ({report.deviations.length})
         </button>
       </div>
 
