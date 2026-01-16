@@ -217,7 +217,7 @@ const ReportEditor: React.FC<ReportEditorProps> = ({ report, customModules, onUp
               
               <div className="md:col-span-2 space-y-1">
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase">Site Location</label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Ort</label>
                   <button 
                     onClick={handleAutoLocate}
                     disabled={isLocating}
