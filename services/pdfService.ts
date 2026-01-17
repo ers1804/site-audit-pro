@@ -76,7 +76,7 @@ export const generatePDF = async (report: SiteReport) => {
     ];
 
     const footerFontSize = 6;
-    const lineHeight = 4.5;
+    const lineHeight = 3;
     const footerTop = pageHeight - 28;
     const columnGap = 6;
     const colWidth = (pageWidth - margin * 2 - columnGap * 3) / 4;
@@ -122,12 +122,13 @@ export const generatePDF = async (report: SiteReport) => {
   
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Report No: ${report.reportNumber || 'N/A'}`, 60, 50);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Protokoll lfd. Nr.: ${report.reportNumber || 'N/A'}`, 60, 50);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text(`Bauvorhaben: ${report.projectName || 'N/A'}`, margin, 44);
   doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
   doc.text(`Dok. Nr.: ${report.projectNumber || 'N/A'}`, margin, 50);
   doc.text(`Datum: ${report.visitDate}`, margin, 56);
   doc.text(`Zeit: ${report.visitTime || 'N/A'}`, 60, 56);
