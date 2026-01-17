@@ -16,6 +16,25 @@ export const generatePDF = async (report: SiteReport) => {
     doc.text(text, (pageWidth - textWidth) / 2, y);
   };
 
+  const loadImageAsDataUrl = async (url: string) => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  let headerLogoDataUrl: string | null = null;
+  try {
+    const logoUrl = new URL('../kohlreiter.png', import.meta.url).toString();
+    headerLogoDataUrl = await loadImageAsDataUrl(logoUrl);
+  } catch (error) {
+    headerLogoDataUrl = null;
+  }
+
   const drawFirstPageFooter = () => {
     const footerLines = [
       [
@@ -73,6 +92,13 @@ export const generatePDF = async (report: SiteReport) => {
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
   doc.text('gem. BauKG, BGBI. I Nr. 37/1999', margin, 28);
+  if (headerLogoDataUrl) {
+    const logoWidth = 28;
+    const logoHeight = 28;
+    const logoX = pageWidth - margin - logoWidth;
+    const logoY = 6;
+    doc.addImage(headerLogoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+  }
   // centerText(report.projectName || 'Unnamed Project', 28, 14, 'normal');
   
   doc.setTextColor(0, 0, 0);
