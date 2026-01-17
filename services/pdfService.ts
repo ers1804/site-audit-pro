@@ -27,12 +27,24 @@ export const generatePDF = async (report: SiteReport) => {
     });
   };
 
+  const loadImageSize = async (dataUrl: string) => {
+    return await new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  };
+
   let headerLogoDataUrl: string | null = null;
+  let headerLogoSize: { width: number; height: number } | null = null;
   try {
     const logoUrl = new URL('../kohlreiter.png', import.meta.url).toString();
     headerLogoDataUrl = await loadImageAsDataUrl(logoUrl);
+    headerLogoSize = await loadImageSize(headerLogoDataUrl);
   } catch (error) {
     headerLogoDataUrl = null;
+    headerLogoSize = null;
   }
 
   const drawFirstPageFooter = () => {
@@ -92,9 +104,10 @@ export const generatePDF = async (report: SiteReport) => {
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
   doc.text('gem. BauKG, BGBI. I Nr. 37/1999', margin, 28);
-  if (headerLogoDataUrl) {
-    const logoWidth = 28;
-    const logoHeight = 28;
+  if (headerLogoDataUrl && headerLogoSize) {
+    const mmPerPx = 25.4 / 96;
+    const logoWidth = headerLogoSize.width * mmPerPx;
+    const logoHeight = headerLogoSize.height * mmPerPx;
     const logoX = pageWidth - margin - logoWidth;
     const logoY = 6;
     doc.addImage(headerLogoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
