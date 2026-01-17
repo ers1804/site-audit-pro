@@ -16,6 +16,51 @@ export const generatePDF = async (report: SiteReport) => {
     doc.text(text, (pageWidth - textWidth) / 2, y);
   };
 
+  const drawFirstPageFooter = () => {
+    const footerLines = [
+      [
+        'Kohlreiter Immobilien &',
+        'Projektmanagement GmbH',
+        'Wasserfeld 1a',
+        '6361 Hopfgarten'
+      ],
+      [
+        'Mobil Marcel: +43 (0) 664 / 75 113 306',
+        'Mobil Andreas: +43 (0) 678 / 125 0 145',
+        'E-Mail: buero@kohlreiter.at',
+        'Internet: www.kohlreiter.at'
+      ],
+      [
+        'Bankverbindung',
+        'HYPO Tirol Bank Kitzbühel',
+        'IBAN: AT73 5700 0300 5549 2937',
+        'BIC: HYPTAT22'
+      ],
+      [
+        'UID Nr.: ATU 82406139',
+        'Firmenbuch: FN 491554z',
+        'Landesgericht Innsbruck',
+        'Inhaber: Ing. Andreas Kohlreiter'
+      ]
+    ];
+
+    const footerFontSize = 8;
+    const lineHeight = 4.5;
+    const footerTop = pageHeight - 28;
+    const colWidth = (pageWidth - margin * 2) / 4;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(footerFontSize);
+    doc.setTextColor(60, 60, 60);
+
+    footerLines.forEach((col, colIndex) => {
+      const x = margin + colWidth * colIndex;
+      col.forEach((line, lineIndex) => {
+        doc.text(line, x, footerTop + lineHeight * lineIndex);
+      });
+    });
+  };
+
   // --- PAGE 1: TITLE & DISTRIBUTION ---
   doc.setFillColor(31, 41, 55); 
   doc.rect(0, 0, pageWidth, 40, 'F');
@@ -51,8 +96,14 @@ export const generatePDF = async (report: SiteReport) => {
     headStyles: { fillColor: [31, 41, 55], textColor: [255, 255, 255] },
     columnStyles: {
       4: { halign: 'center' }
-    }
+    },
+    margin: { left: margin, right: margin, bottom: 45 }
   });
+
+  const afterTablePage = doc.getNumberOfPages();
+  doc.setPage(1);
+  drawFirstPageFooter();
+  doc.setPage(afterTablePage);
 
   // --- PAGE 2+: DEVIATIONS ---
   if (report.deviations.length > 0) {
