@@ -44,17 +44,18 @@ export const generatePDF = async (report: SiteReport) => {
       ]
     ];
 
-    const footerFontSize = 8;
+    const footerFontSize = 6;
     const lineHeight = 4.5;
     const footerTop = pageHeight - 28;
-    const colWidth = (pageWidth - margin * 2) / 4;
+    const columnGap = 6;
+    const colWidth = (pageWidth - margin * 2 - columnGap * 3) / 4;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(footerFontSize);
     doc.setTextColor(60, 60, 60);
 
     footerLines.forEach((col, colIndex) => {
-      const x = margin + colWidth * colIndex;
+      const x = margin + colIndex * (colWidth + columnGap);
       col.forEach((line, lineIndex) => {
         doc.text(line, x, footerTop + lineHeight * lineIndex);
       });
