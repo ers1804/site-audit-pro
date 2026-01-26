@@ -227,8 +227,8 @@ export const generatePDF = async (report: SiteReport) => {
       const imageEndPointY = dev.photoUrl ? contentStartY + 60 : contentStartY;
       
       // Position the metadata fields below both text and image
-      // let fieldY = Math.max(textEndPointY, imageEndPointY) + 8;
-      let fieldY = textEndPointY + 8;
+      let fieldY = Math.max(textEndPointY, imageEndPointY) + 8;
+      // let fieldY = textEndPointY + 8;
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
