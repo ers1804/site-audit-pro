@@ -242,7 +242,8 @@ export const generatePDF = async (report: SiteReport) => {
       doc.text(dev.actionStatus || 'laufend', textX + 40, fieldY + 6);
 
       // Update currentY for next item
-      currentY = imageEndPointY + 15;
+      let newfieldY = Math.max(textEndPointY, imageEndPointY) + 8;
+      currentY = newfieldY + 15;
     }
   }
 
