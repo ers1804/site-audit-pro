@@ -224,7 +224,7 @@ export const generatePDF = async (report: SiteReport) => {
       // Track how far down the text went
       const textEndPointY = contentStartY + 11 + (splitText.length * 5);
       // Track how far down the image went (if any)
-      const imageEndPointY = dev.photoUrl ? contentStartY + 60 : contentStartY;
+      const imageEndPointY = dev.photoUrl ? contentStartY + 60 : contentStartY + 11 + (splitText.length * 5);
       
       // Position the metadata fields below both text and image
       // let fieldY = Math.max(textEndPointY, imageEndPointY) + 8;
