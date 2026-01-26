@@ -307,15 +307,17 @@ const ReportEditor: React.FC<ReportEditorProps> = ({ report, customModules, onUp
                 {report.deviations.map((deviation, idx) => (
                   <div 
                     key={deviation.id} 
-                    className={`grid grid-cols-1 md:grid-cols-12 gap-6 p-4 border border-slate-200 rounded-2xl relative bg-white shadow-sm transition-all ${openDropdownId === deviation.id ? 'ring-2 ring-blue-500/20 z-[100]' : 'z-10'}`}
+                    className={`grid grid-cols-1 md:grid-cols-12 gap-6 p-4 border border-slate-200 rounded-2xl relative bg-white shadow-sm transition-all overflow-visible ${openDropdownId === deviation.id ? 'ring-2 ring-blue-500/20 z-[100]' : 'z-10'}`}
                   >
                     <div className="absolute top-0 left-0 bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-br-lg uppercase z-10">Item #{idx + 1}</div>
                     <button onClick={() => removeItem('deviations', deviation.id)} className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg z-20 hover:bg-red-600 transition"><i className="fas fa-times"></i></button>
 
-                    <div className="md:col-span-4 mt-4 md:mt-0">
+                    <div className="md:col-span-4 mt-4 md:mt-0 self-start">
                       {deviation.photoUrl ? (
                         <div className="space-y-2">
-                          <img src={deviation.photoUrl} alt={`Item ${idx + 1}`} className="w-full h-48 object-cover rounded-xl border border-slate-100 bg-gray-50" />
+                          <div className="w-full h-48 overflow-hidden rounded-xl border border-slate-100 bg-gray-50 flex items-center justify-center">
+                            <img src={deviation.photoUrl} alt={`Item ${idx + 1}`} className="w-full h-full object-cover" />
+                          </div>
                           <button 
                             onClick={() => handleAiAnalyze(deviation)}
                             disabled={analyzingIds.has(deviation.id)}
